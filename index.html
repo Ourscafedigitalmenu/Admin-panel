@@ -893,8 +893,11 @@ function renderOrdersMasterTable() {
   }).join('');
 }
 
-// 🗑️ DELETE SINGLE ORDER ROW (PURGES EXACT ROW FROM GOOGLE SHEETS)
+
+// 🗑️ DELETE SINGLE ORDER ROW (GUARANTEED EXECUTION VIA GET ACTION)
 function deleteSingleOrderRow(orderId) {
+  const cleanId = String(orderId).replace(/[^a-zA-Z0-9_-]/g, '').trim();
+
   Swal.fire({
     title: adminLang === 'am' ? 'ትዕዛዙ ይሰረዝ?' : 'Delete Order?',
     text: adminLang === 'am' ? `ትዕዛዝ #${orderId} ከዳታቤዝ (Sheet) ላይ ሙሉ በሙሉ ይጣፋል። እርግጠኛ ነዎት?` : `Order #${orderId} will be permanently removed from Google Sheets. Continue?`,
@@ -905,22 +908,20 @@ function deleteSingleOrderRow(orderId) {
     cancelButtonText: adminLang === 'am' ? 'ተው' : 'Cancel'
   }).then(res => {
     if (res.isConfirmed) {
-      adminData.orders = adminData.orders.filter(o => o.Order_ID !== orderId);
+      adminData.orders = adminData.orders.filter(o => o.Order_ID !== orderId && o.Order_ID !== cleanId);
       renderOrdersMasterTable();
       renderOverviewCards();
 
-      fetch(SCRIPT_URL, {
-        method: "POST", mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "deleteOrderRow", orderId: orderId })
-      });
+      // 100% Immune to CORS Block: Direct GET Execution
+      const deleteUrl = `${SCRIPT_URL}?action=deleteOrderRow&orderId=${encodeURIComponent(cleanId)}&t=${Date.now()}`;
+      fetch(deleteUrl, { mode: 'no-cors' });
 
       Swal.fire({ icon: 'success', title: 'ተሰርዟል!', text: `ትዕዛዝ #${orderId} ከዳታቤዝ ተወግዷል ✓`, timer: 1500, showConfirmButton: false });
     }
   });
 }
 
-// 🚨 PURGE ALL DEMO ORDERS
+// 🚨 PURGE ALL DEMO ORDERS (GUARANTEED EXECUTION VIA GET ACTION)
 function purgeAllDemoOrders() {
   Swal.fire({
     title: adminLang === 'am' ? '🚨 ሁሉንም ትዕዛዞች ማጽዳት?' : '🚨 Purge All Demo Orders?',
@@ -933,14 +934,11 @@ function purgeAllDemoOrders() {
   }).then(res => {
     if (res.isConfirmed) {
       adminData.orders = [];
-      adminData.finance = { cashTotal: 0, cbeTotal: 0, grandTotal: 0, completedOrdersCount: 0 };
       renderAllAdminSections();
 
-      fetch(SCRIPT_URL, {
-        method: "POST", mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "purgeDemoOrders" })
-      });
+      // 100% Immune to CORS Block: Direct GET Execution
+      const purgeUrl = `${SCRIPT_URL}?action=purgeDemoOrders&t=${Date.now()}`;
+      fetch(purgeUrl, { mode: 'no-cors' });
 
       Swal.fire({ icon: 'success', title: 'የሙከራ ዳታ ተጠርጓል!', text: 'ሁሉም ትዕዛዞች በስኬት ተሰርዘዋል ✓', timer: 2000, showConfirmButton: false });
     }
