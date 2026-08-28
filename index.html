@@ -61,7 +61,7 @@ body{
 .side-item i{width:18px;text-align:center;color:var(--sub);}
 .side-item.active i{color:var(--red);}
 
-/* NAVIGATION TABS (DESKTOP & HORIZONTAL MOBILE) */
+/* NAVIGATION TABS */
 .admin-tab-btn{
   display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:12px;
   font-size:11px;font-weight:800;color:var(--sub);background:var(--card);
@@ -702,9 +702,29 @@ function formatDriveUrl(url) {
   
   const match = clean.match(/(?:id=|\/d\/)([a-zA-Z0-9_-]{20,})/);
   if (match && match[1]) {
-    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1200`;
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
   }
   return clean;
+}
+
+// ─── ADMIN DATA NORMALIZER (SAVES AGAINST ZERO/UNDEFINED ERRORS) ───
+function normalizeAdminOrder(raw) {
+  const norm = {};
+  for (let k in raw) {
+    const cleanK = String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
+    norm[cleanK] = raw[k];
+  }
+  return {
+    Order_ID: raw.Order_ID || norm.orderid || norm.id || 'ORD-000',
+    Table_No: String(raw.Table_No || norm.tableno || norm.table || '05'),
+    Items_Ordered: raw.Items_Ordered || norm.itemsordered || norm.items || norm.item || '',
+    Total_Price: raw.Total_Price || norm.totalprice || norm.total || norm.price || '0 ETB',
+    Order_Status: String(raw.Order_Status || norm.orderstatus || norm.status || 'New').trim(),
+    Payment_Status: String(raw.Payment_Status || norm.paymentstatus || norm.paystatus || 'Unpaid').trim(),
+    Payment_Method: raw.Payment_Method || norm.paymentmethod || norm.method || 'CBE Bank Transfer',
+    Payment_Url: raw.Payment_Url || norm.paymenturl || norm.screenshoturl || raw.Screenshot_URL || '',
+    Timestamp: raw.Timestamp || norm.timestamp || norm.time || ''
+  };
 }
 
 // ─── FETCH MASTER ADMIN DATA ───
@@ -715,6 +735,9 @@ async function fetchMasterAdminData() {
     
     if (data.status === 'success') {
       adminData = data;
+      if (adminData.orders && Array.isArray(adminData.orders)) {
+        adminData.orders = adminData.orders.map(normalizeAdminOrder);
+      }
       renderAllAdminSections();
     }
   } catch (e) {
@@ -794,7 +817,7 @@ function renderOverviewCards() {
   const sorted = Object.entries(itemCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const topDishesDiv = document.getElementById('topDishesContainer');
   if (sorted.length === 0) {
-    topDishesDiv.innerHTML = `<p class="text-slate-400 text-xs text-center py-4">ምንም ትዕዛዝ አልተመዘገበም</p>`;
+    topDishesDiv.innerHTML = `<p class="text-slate-400 text-xs text-center py-4">ምንም ትዕዛዝ አልተገኘም</p>`;
   } else {
     topDishesDiv.innerHTML = sorted.map(([name, qty], idx) => `
       <div class="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-950 rounded-xl text-xs border border-slate-200 dark:border-slate-800">
@@ -870,7 +893,7 @@ function renderOrdersMasterTable() {
   }).join('');
 }
 
-// 🗑️ DELETE SINGLE ORDER ROW (PURGES ROW FROM GOOGLE SHEETS)
+// 🗑️ DELETE SINGLE ORDER ROW (PURGES EXACT ROW FROM GOOGLE SHEETS)
 function deleteSingleOrderRow(orderId) {
   Swal.fire({
     title: adminLang === 'am' ? 'ትዕዛዙ ይሰረዝ?' : 'Delete Order?',
